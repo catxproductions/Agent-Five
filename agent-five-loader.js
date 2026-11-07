@@ -104,7 +104,7 @@
         setStatus("Preparing the secure Agent Five interface…", "loading");
         if (!runtimeLoaded) {
             await loadPageScript("network-visualizer.js?v=20261107-fit-canvas");
-            await loadPageScript("agent-five-browser.js?v=20261107-compact-snapshots");
+            await loadPageScript("agent-five-browser.js?v=20261107-self-server-modes");
             if (!root.AgentFiveBrowser || !root.AgentFiveBrowser.simulation) {
                 throw new Error("The Agent Five browser interface did not initialize.");
             }
