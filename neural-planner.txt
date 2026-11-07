@@ -1,0 +1,83 @@
+      Agent Five neural and learning architecture · v8
+========================================================
+
+      Structure:
+- Inputs: 16 normalized perception values.
+- Hidden layers: 26 fully connected layers with sizes:
+  [15,16,15,14,15,13,14,12,13,11,12,10,11,12,10,9,10,8,9,7,8,6,7,5,6,4]
+- Actor outputs: continuous thrust X, thrust Y, and braking.
+- The value critic shares the same 16-input and 26-hidden-layer structure and produces one state-value estimate.
+
+      Perception inputs:
+1. Current speed X
+2. Current speed Y
+3. Goal Location X
+4. Goal Location Y
+5. Obstacle Location X
+6. Obstacle Location Y
+7. Obstacle clearance
+8. Current location X
+9. Current location Y
+10. Energy remaining
+11. Left wall clearance
+12. Right wall clearance
+13. Top wall clearance
+14. Bottom wall clearance
+15. Goal distance
+16. Energy Usage Rate
+
+Energy Usage Rate is a smoothed normalized measure of recent per-step energy consumption. It helps the policy distinguish between actions that make progress efficiently and actions that use energy rapidly.
+
+      Memory:
+- Up to 192 prioritized state/action memories.
+- Up to 48 short episodic sequences, each retaining up to 12 state/action/reward steps.
+- Similar state memories and nearby episodes can softly bias the current policy.
+- V7 memory inputs are remapped from the former obstacle-closing-speed / goal-distance order to the v8 goal-distance / energy-usage order.
+- Older 9-input and 10-input memories are migrated by padding new perception features with neutral values.
+- Brain exports include the actor, critic, state memories, and episodic memory.
+- Evolutionary descendants inherit the winner's policy, value critic, and memories.
+
+      ⮟Neural Network Structure Summary:⮟
+
+INPUT: 16 [Current_Speed_X, Current_Speed_Y, Goal_Location_X, Goal_Location_Y, Obstacle_Location_X, Obstacle_Location_Y, Obstacle_Clearance, Current_Location_X, Current_Location_Y, Energy_Remaining, Left_Wall_Clearance, Right_Wall_Clearance, Top_Wall_Clearance, Bottom_Wall_Clearance, Goal_Distance, Energy_Usage_Rate]
+Hidden Layer 1: 15 Neurons
+Hidden Layer 2: 16 Neurons
+Hidden Layer 3: 15 Neurons
+Hidden Layer 4: 14 Neurons
+Hidden Layer 5: 15 Neurons
+Hidden Layer 6: 13 Neurons
+Hidden Layer 7: 14 Neurons
+Hidden Layer 8: 12 Neurons
+Hidden Layer 9: 13 Neurons
+Hidden Layer 10: 11 Neurons
+Hidden Layer 11: 12 Neurons
+Hidden Layer 12: 10 Neurons
+Hidden Layer 13: 11 Neurons
+Hidden Layer 14: 12 Neurons
+Hidden Layer 15: 10 Neurons
+Hidden Layer 16: 9 Neurons
+Hidden Layer 17: 10 Neurons
+Hidden Layer 18: 8 Neurons
+Hidden Layer 19: 9 Neurons
+Hidden Layer 20: 7 Neurons
+Hidden Layer 21: 8 Neurons
+Hidden Layer 22: 6 Neurons
+Hidden Layer 23: 7 Neurons
+Hidden Layer 24: 5 Neurons
+Hidden Layer 25: 6 Neurons
+Hidden Layer 26: 4 Neurons
+OUTPUT: 3 [Thrust_X, Thrust_Y, Braking]
+CRITIC OUTPUT: 1 [State_Value]
+
+      Learning:
+- PPO updates the actor and critic from on-policy rollouts with generalized advantage estimation.
+- The neural policy samples continuous actions; the short-horizon route planner only provides a bounded policy-mean bias.
+- The critic estimates state value for advantage calculation.
+- Background Worker training is used when available, with a throttled main-thread fallback.
+
+      Evolution:
+- Population size: 15–300.
+- The first agent to collect five goals wins the generation.
+- One unchanged elite is retained; the other agents are mutated descendants of the winner.
+- Every descendant receives a separate environment, actor, critic, and memory bank.
+- If no agent wins within two minutes, selection uses goals collected, measured goal progress, then remaining energy.

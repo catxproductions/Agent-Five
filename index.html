@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="theme-color" content="#121214">
+    <title>Agent Five Neural Network Training Tool</title>
+    <link rel="icon" type="image/x-icon" href="https://cdn.phototourl.com/member/2026-11-06-675b3b61-d4f3-44f0-a043-d60f666d354f.png">
+    <link rel="stylesheet" href="styles.css?v=20261107-fit-neural-canvas">
+    <script src="agent-five-auth.js?v=20261107-no-preflight" defer></script>
+    <script src="agent-five-loader.js?v=20261107-server-authoritative" defer></script>
+    <style>
+        #sandbox-container[hidden], #analytics-dashboard[hidden], #agent-five-file-gate[hidden] { display: none !important; }
+        .agent-five-file-gate { max-width: 760px; margin: 28px auto 36px; padding: 28px; border: 1px solid #344256; border-radius: 18px; background: linear-gradient(145deg, #171e29, #101419); color: #e8edf5; box-shadow: 0 18px 48px rgba(0,0,0,.24); }
+        .agent-five-file-gate h2 { margin: 0 0 10px; font-size: clamp(1.4rem, 3vw, 2rem); }
+        .agent-five-file-gate p { line-height: 1.6; }
+        .agent-five-file-gate .file-gate-eyebrow { margin: 0 0 8px; color: #7dd3fc; font-size: .75rem; font-weight: 700; letter-spacing: .14em; }
+        .agent-five-file-gate .file-gate-actions { display: flex; align-items: center; gap: 14px; flex-wrap: wrap; margin: 20px 0 10px; }
+        .agent-five-file-gate .file-gate-status { min-height: 1.5em; color: #a8b7ca; }
+        .agent-five-file-gate .file-gate-note { color: #8795a8; font-size: .85rem; }
+        .agent-five-remember-status { max-width: 760px; margin: -18px auto 28px; padding: 10px 14px; border-left: 3px solid #38bdf8; border-radius: 4px; background: rgba(56, 189, 248, .08); color: #b9d9ec; font-size: .88rem; }
+    </style>
+
+
+
+
+</head>
+<body>
+    <header class="page-header">
+        <h1>Agent Five Neural Network Training Tool</h1>
+        <p class="subtitle">A neural agent chooses its own actions to reach goals and steer around obstacles.</p>
+    </header>
+
+    <section id="agent-five-file-gate" class="agent-five-file-gate" aria-labelledby="agent-five-file-gate-title">
+        <p class="file-gate-eyebrow">AGENT FIVE AUTHENTICATION</p>
+        <h2 id="agent-five-file-gate-title">Authorize Agent Five to begin</h2>
+        <p>Select your private <code>MASTER_TOKEN.token</code> file. Once Cloudflare accepts it, Agent Five runs on your private Cloudflare backend. The browser receives only redacted simulation snapshots.</p>
+        <div class="file-gate-actions">
+            <button class="btn btn-secondary" id="agent-five-token-choose" type="button">Choose MASTER_TOKEN.token</button>
+            <input id="agent-five-master-token" type="file" accept=".token,application/octet-stream" hidden>
+        </div>
+        <p id="agent-five-file-status" class="file-gate-status" role="status" aria-live="polite">Select MASTER_TOKEN.token to continue.</p>
+        <p class="file-gate-note">This is the only file you need to select. The master token is sent to Cloudflare over HTTPS and is never saved. The Agent Five core, learning engine, model parameters and raw experience memory stay on the server. Only redacted world state is sent to this page. The temporary access session expires after 15 minutes.</p>
+    </section>
+    <p id="agent-five-session-status" class="agent-five-remember-status" role="status" aria-live="polite" hidden></p>
+
+    <main id="sandbox-container" hidden>
+        <aside class="controls" aria-label="Agent controls">
+            <section class="stats evolution-panel" aria-labelledby="evolution-title">
+                <h2 id="evolution-title">Evolutionary Training</h2>
+                <label class="mode-toggle" for="evolution-mode">
+                    <input id="evolution-mode" type="checkbox">
+                    <span>Enable Evolutionary Training</span>
+                </label>
+                <label class="evolution-size-control" for="evolution-population-size">
+                    <span>Population size (15–300)</span>
+                    <input id="evolution-population-size" type="number" min="15" max="300" step="1" value="15">
+                </label>
+                <p class="evolution-help">Every agent has its own isolated goal and obstacle; collecting a goal relocates only that agent's goal. When any agent collects five goals, the entire population resets together from that winner: one unchanged elite is kept and the remaining agents are mutated descendants with fresh independent environments. If nobody reaches five goals within two minutes, the agent with the most goals, best measured progress, and then most remaining energy becomes the next parent. After collecting one goal, an agent cannot be eliminated by running out of energy.</p>
+                <div class="stat-line"><span>Generation</span><output id="evolution-generation">—</output></div>
+                <div class="stat-line"><span>Population</span><output id="evolution-population">0 / 15</output></div>
+                <div class="stat-line"><span>Best agent</span><output id="evolution-successor">Off</output></div>
+                <div class="stat-line"><span>Adaptive mutation rate</span><output id="evolution-mutation-rate">0.080</output></div>
+                <div class="stat-line"><span>Population diversity</span><output id="evolution-diversity">0.000</output></div>
+            </section>
+
+            <section class="control-panel" aria-labelledby="learning-controls-title">
+                <h2 id="learning-controls-title">Learning Controls</h2>
+                <div class="control-buttons">
+                    <button class="btn btn-reward" id="reward-button" type="button">＋ Reward this behavior</button>
+                    <button class="btn btn-punish" id="punish-button" type="button">－ Correct this behavior</button>
+                </div>
+            </section>
+
+            <section class="control-panel" aria-labelledby="memory-tools-title">
+                <h2 id="memory-tools-title">Memory &amp; Model</h2>
+                <p class="help-text">Agent Five stores up to 192 state memories and 48 short episodic sequences. Similar situations can recall useful actions, while PPO learns from complete action/reward trajectories. Descendants inherit the winner's policy, value network, and memories.</p>
+                <div class="control-buttons">
+                    <button class="btn btn-secondary" id="clear-memory-button" type="button">Clear memory</button>
+                    <button class="btn btn-secondary" id="reset-button" type="button">Reset brain and memory</button>
+                    <button class="btn btn-export" id="export-button" type="button">Export training summary JSON</button>
+                    <button class="btn btn-secondary" id="load-button" type="button">Load brain + memory JSON</button>
+                </div>
+                <input id="brain-file" type="file" accept=".json,application/json" hidden>
+            </section>
+
+            <section class="control-panel" aria-labelledby="file-input-title">
+                <h2 id="file-input-title">File Input</h2>
+                <p class="help-text">Choose a file from your device. The selected file is made available to the browser integration; it is not uploaded automatically.</p>
+                <div class="control-buttons">
+                    <button class="btn btn-secondary" id="choose-file-button" type="button">Choose a file</button>
+                </div>
+                <input id="general-file-input" type="file" hidden>
+                <p id="selected-file-name" class="help-text" role="status" aria-live="polite">No file selected.</p>
+            </section>
+
+            <p id="feedback-message" class="feedback-message" role="status" aria-live="polite"></p>
+        </aside>
+
+        <section class="world" aria-label="Agent simulation">
+            <canvas id="simCanvas" width="500" height="500" aria-label="Simulation showing the agent, goal, and obstacle"></canvas>
+            <div id="evolution-arena-view" class="evolution-arena-view" hidden aria-label="Separate simulation arenas for each evolutionary agent">
+                <div class="evolution-arena-heading">
+                    <strong id="evolution-arena-count">Independent arenas</strong>
+                    <span>Each tile has its own agent, goal, and obstacle</span>
+                </div>
+                <div class="evolution-arena-scroll" tabindex="0" aria-label="Scrollable grid of independent agent arenas">
+                    <canvas id="evolutionCanvas" width="690" height="438" role="img" aria-label="Grid showing each evolutionary agent in its own separate simulation arena"></canvas>
+                </div>
+            </div>
+            <div class="legend" aria-hidden="true">
+                <span><i class="dot agent-dot"></i>Agent</span>
+                <span><i class="dot goal-dot"></i>Goal</span>
+                <span><i class="dot obstacle-dot"></i>Obstacle</span>
+            </div>
+            <section class="network-panel" aria-labelledby="network-title">
+                <div class="network-heading">
+                    <div>
+                        <h2 id="network-title">Abstract neural activity</h2>
+                        <p>Neuron values update as the agent perceives and acts.</p>
+                    </div>
+                    <span class="network-key"><i></i> active signal</span>
+                </div>
+                <div class="network-scroll">
+                    <canvas id="networkCanvas" width="1040" height="500" role="img" aria-label="Abstracted neural activity display with sixteen inputs, six summary nodes, and three outputs"></canvas>
+                </div>
+                <p class="network-caption">An abstract activity view. The actual network structure, learned parameters and training state remain on the private server.</p>
+            </section>
+        </section>
+
+        <aside class="diagnostics" aria-label="Agent diagnostics">
+            <section class="stats">
+                <h2>Inputs · perception</h2>
+                <div class="stat-line"><span>Current speed (X, Y)</span><output id="input-speed">0.00, 0.00</output></div>
+                <div class="stat-line"><span>Goal direction</span><output id="input-goal">0.00, 0.00</output></div>
+                <div class="stat-line"><span>Obstacle direction</span><output id="input-obstacle">0.00, 0.00</output></div>
+                <div class="stat-line"><span>Obstacle clearance</span><output id="input-clearance">0.00</output></div>
+                <div class="stat-line"><span>Current location (X, Y)</span><output id="input-location">0.00, 0.00</output></div>
+                <div class="stat-line"><span>Energy left</span><output id="input-energy">100.0 / 100</output></div>
+                <progress class="energy-meter" id="energy-meter" value="100" max="100" aria-label="Energy remaining"></progress>
+            </section>
+
+            <section class="stats">
+                <h2>Outputs · action</h2>
+                <div class="stat-line"><span>Thrust X</span><output id="output-vx">0.00</output></div>
+                <div class="stat-line"><span>Thrust Y</span><output id="output-vy">0.00</output></div>
+                <div class="stat-line"><span>Friction / braking</span><output id="output-brake">0.00</output></div>
+                <div class="stat-line"><span>Training examples</span><output id="training-count">0</output></div>
+                <div class="stat-line"><span>Rewards / corrections</span><output id="training-feedback">0 / 0</output></div>
+                <div class="stat-line"><span>Wall-penalty frames</span><output id="wall-penalty-frames">0</output></div>
+                <div class="stat-line"><span>Experience memories</span><output id="memory-count">0 / 192</output></div>
+                <div class="stat-line"><span>Episodic sequences</span><output id="memory-episodes">0 / 48</output></div>
+                <div class="stat-line"><span>PPO training updates</span><output id="ppo-update-count">0</output></div>
+                <div class="stat-line"><span>Memory recall influence</span><output id="memory-recall">0%</output></div>
+                <div class="stat-line"><span>Memories used this step</span><output id="memory-recalled">0</output></div>
+                <p class="memory-breakdown" id="memory-breakdown">Goals 0 · Corrections 0 · Energy 0 · Walls 0</p>
+                <div class="stat-line"><span>Latest experience</span><output id="memory-latest">No experiences stored yet</output></div>
+                <div class="stat-line"><span>Model status</span><output id="model-status">Starting…</output></div>
+            </section>
+        </aside>
+    </main>
+
+    <section id="analytics-dashboard" hidden class="analytics-dashboard" aria-labelledby="analytics-title">
+        <div class="analytics-heading">
+            <div>
+                <p class="analytics-eyebrow">AGENT FIVE · LIVE TELEMETRY</p>
+                <h2 id="analytics-title">Training Analytics &amp; Memory Insights</h2>
+                <p class="analytics-intro">Live measurements from the current session. Charts show recent activity and reset when the page is reloaded.</p>
+            </div>
+            <span class="analytics-live"><i></i> Updating live</span>
+        </div>
+
+        <section class="analytics-section" aria-labelledby="analytics-ratios-title">
+            <h3 id="analytics-ratios-title">Training ratios</h3>
+            <div class="analytics-metric-grid">
+                <article class="analytics-metric">
+                    <span>Total training examples</span>
+                    <strong id="analytics-total-examples">0</strong>
+                    <small>Learning updates recorded</small>
+                </article>
+                <article class="analytics-metric">
+                    <span>Positive feedback share</span>
+                    <strong id="analytics-reward-share">—</strong>
+                    <small>Rewards ÷ rewards and corrections</small>
+                </article>
+                <article class="analytics-metric">
+                    <span>Reward : correction ratio</span>
+                    <strong id="analytics-feedback-ratio">—</strong>
+                    <small>Relative frequency of feedback</small>
+                </article>
+                <article class="analytics-metric">
+                    <span>Wall-contact share</span>
+                    <strong id="analytics-wall-share">—</strong>
+                    <small>Wall penalty frames ÷ corrections</small>
+                </article>
+            </div>
+        </section>
+
+        <div class="analytics-two-column">
+            <section class="analytics-section" aria-labelledby="analytics-rates-title">
+                <h3 id="analytics-rates-title">Private training configuration</h3>
+                <p class="analytics-description">Learning and optimization settings are managed by the private Cloudflare backend.</p>
+                <div class="analytics-rate-list">
+                    <div><span>Actor learning rate</span><strong id="analytics-rate-base">—</strong></div>
+                    <div><span>Critic learning rate</span><strong id="analytics-rate-reward">—</strong></div>
+                    <div><span>PPO clip range</span><strong id="analytics-rate-correction">—</strong></div>
+                    <div><span>Discount factor (gamma)</span><strong id="analytics-rate-wall">—</strong></div>
+                    <div><span>GAE lambda</span><strong id="analytics-rate-depletion">—</strong></div>
+                    <div><span>Policy exploration std</span><strong id="analytics-rate-replay">—</strong></div>
+                </div>
+                <p class="analytics-footnote">PPO collects on-policy action sequences, estimates advantages with GAE, and limits policy updates to reduce destructive jumps.</p>
+            </section>
+
+            <section class="analytics-section" aria-labelledby="analytics-memory-title">
+                <h3 id="analytics-memory-title">Memory health</h3>
+                <div class="analytics-memory-metrics">
+                    <div><span>State memory capacity</span><strong id="analytics-memory-capacity">0 / 192</strong></div>
+                    <div><span>Episodic sequence capacity</span><strong id="analytics-episode-capacity">0 / 48</strong></div>
+                    <div><span>PPO updates</span><strong id="analytics-ppo-updates">0</strong></div>
+                    <div><span>Recent mean reward</span><strong id="analytics-ppo-reward">0.000</strong></div>
+                    <div><span>Average priority</span><strong id="analytics-memory-priority">—</strong></div>
+                    <div><span>Average confirmations</span><strong id="analytics-memory-occurrences">—</strong></div>
+                    <div><span>Recall influence</span><strong id="analytics-memory-recall">0%</strong></div>
+                    <div><span>Memories used this step</span><strong id="analytics-memory-recalled">0</strong></div>
+                </div>
+                <div class="analytics-meter-track" aria-hidden="true"><span id="analytics-memory-meter"></span></div>
+                <p class="analytics-description">Stored experiences grouped by outcome.</p>
+                <canvas id="analytics-memory-chart" class="analytics-chart analytics-memory-chart" width="720" height="230" role="img" aria-label="Bar chart of stored memory counts by outcome"></canvas>
+            </section>
+        </div>
+
+        <section class="analytics-section" aria-labelledby="analytics-trends-title">
+            <div class="analytics-section-heading">
+                <div>
+                    <h3 id="analytics-trends-title">Live training trends</h3>
+                    <p class="analytics-description">A rolling view of the most recent samples from this page session.</p>
+                </div>
+                <span class="analytics-range">Up to 60 samples</span>
+            </div>
+            <div class="analytics-chart-grid">
+                <article class="analytics-chart-card">
+                    <h4>Rewards vs. corrections</h4>
+                    <div class="analytics-chart-legend">
+                        <span><i class="legend-rewards"></i>Rewards</span>
+                        <span><i class="legend-corrections"></i>Corrections</span>
+                    </div>
+                    <canvas id="analytics-feedback-chart" class="analytics-chart" width="720" height="230" role="img" aria-label="Line chart comparing cumulative rewards and corrections over time"></canvas>
+                </article>
+                <article class="analytics-chart-card">
+                    <h4>Energy reserve</h4>
+                    <div class="analytics-chart-legend">
+                        <span><i class="legend-energy"></i>Energy remaining</span>
+                    </div>
+                    <canvas id="analytics-energy-chart" class="analytics-chart" width="720" height="230" role="img" aria-label="Line chart showing energy remaining over time"></canvas>
+                </article>
+            </div>
+        </section>
+
+        <p class="analytics-disclaimer">Analytics are observational only. Feedback ratios are not a measure of goal-completion accuracy, and session charts are not stored in the exported brain file.</p>
+    </section>
+    <noscript>This simulation needs JavaScript enabled to run the neural network.</noscript>
+</body>
+</html>
