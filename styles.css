@@ -299,3 +299,100 @@ noscript { margin-top: 16px; color: #ffb4b4; }
     aspect-ratio: auto;
     background: #090d13;
 }
+
+
+/* Distinct user-training and autonomous server-trained views. */
+#sandbox-container {
+    grid-template-rows: auto minmax(0, 1fr);
+    grid-template-areas:
+        "mode mode mode"
+        "controls world diagnostics";
+}
+
+.agent-five-mode-switcher {
+    grid-area: mode;
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 14px 20px;
+    flex-wrap: wrap;
+    padding: 12px 14px;
+    border: 1px solid #354255;
+    border-radius: 10px;
+    background: #111720;
+}
+
+.mode-switcher-buttons {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+}
+
+.mode-button {
+    padding: 10px 13px;
+    border: 1px solid #3a4658;
+    border-radius: 7px;
+    background: #222b38;
+    color: #aeb8c7;
+    font: 750 0.72rem Inter, "Segoe UI", sans-serif;
+    letter-spacing: 0.035em;
+    cursor: pointer;
+    transition: background 0.15s, border-color 0.15s, color 0.15s;
+}
+
+.mode-button:hover { border-color: #64748b; color: #f1f5f9; }
+.mode-button:focus-visible { outline: 2px solid #7dd3fc; outline-offset: 3px; }
+.mode-button.is-active {
+    border-color: #238c77;
+    background: #12352f;
+    color: #a7f3d0;
+}
+
+#agent-five-mode-description {
+    flex: 1 1 240px;
+    margin: 0;
+    color: #9eacbd;
+    font-size: 0.74rem;
+    line-height: 1.45;
+    text-align: right;
+}
+
+.server-training-panel {
+    border-color: #286b60;
+    background: #10221f;
+}
+
+.server-training-panel .stat-line output { color: #9ce5c7; }
+.server-training-panel .help-text { margin: 10px 0 0; }
+
+#server-training-panel[hidden],
+.user-training-only[hidden] { display: none !important; }
+
+@media (max-width: 1040px) {
+    #sandbox-container {
+        grid-template-rows: auto auto auto;
+        grid-template-areas:
+            "mode mode"
+            "world diagnostics"
+            "controls diagnostics";
+    }
+}
+
+@media (max-width: 760px) {
+    #sandbox-container {
+        grid-template-rows: auto auto auto auto;
+        grid-template-areas:
+            "mode"
+            "world"
+            "controls"
+            "diagnostics";
+    }
+    .agent-five-mode-switcher { align-items: stretch; }
+    .mode-switcher-buttons { display: grid; grid-template-columns: 1fr; }
+    #agent-five-mode-description { text-align: left; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .mode-button { transition: none; }
+}

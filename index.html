@@ -6,9 +6,9 @@
     <meta name="theme-color" content="#121214">
     <title>Agent Five Neural Network Training Tool</title>
     <link rel="icon" type="image/x-icon" href="https://cdn.phototourl.com/member/2026-11-06-675b3b61-d4f3-44f0-a043-d60f666d354f.png">
-    <link rel="stylesheet" href="styles.css?v=20261107-fit-neural-canvas">
-    <script src="agent-five-auth.js?v=20261107-no-preflight" defer></script>
-    <script src="agent-five-loader.js?v=20261107-server-authoritative" defer></script>
+    <link rel="stylesheet" href="styles.css?v=20261107-self-server-modes">
+    <script src="agent-five-auth.js?v=20261107-self-server-modes" defer></script>
+    <script src="agent-five-loader.js?v=20261107-self-server-modes" defer></script>
     <style>
         #sandbox-container[hidden], #analytics-dashboard[hidden], #agent-five-file-gate[hidden] { display: none !important; }
         .agent-five-file-gate { max-width: 760px; margin: 28px auto 36px; padding: 28px; border: 1px solid #344256; border-radius: 18px; background: linear-gradient(145deg, #171e29, #101419); color: #e8edf5; box-shadow: 0 18px 48px rgba(0,0,0,.24); }
@@ -45,8 +45,23 @@
     <p id="agent-five-session-status" class="agent-five-remember-status" role="status" aria-live="polite" hidden></p>
 
     <main id="sandbox-container" hidden>
+        <nav class="agent-five-mode-switcher" aria-label="Agent Five training modes">
+            <div class="mode-switcher-buttons">
+                <button class="mode-button is-active" id="self-training-mode" type="button" aria-pressed="true">SELF TRAINING MODE</button>
+                <button class="mode-button" id="server-trained-mode" type="button" aria-pressed="false">VIEW SERVER-TRAINED AGENT</button>
+            </div>
+            <p id="agent-five-mode-description">Train Agent Five directly with rewards, corrections, and the existing learning controls.</p>
+        </nav>
         <aside class="controls" aria-label="Agent controls">
-            <section class="stats evolution-panel" aria-labelledby="evolution-title">
+            <section id="server-training-panel" class="stats server-training-panel" hidden aria-labelledby="server-training-title">
+                <h2 id="server-training-title">Autonomous Server Training</h2>
+                <div class="stat-line"><span>Trainer status</span><output id="server-training-status">Connecting…</output></div>
+                <div class="stat-line"><span>Training started</span><output id="server-training-started">—</output></div>
+                <div class="stat-line"><span>Last training batch</span><output id="server-training-last-run">—</output></div>
+                <div class="stat-line"><span>Simulated steps</span><output id="server-training-steps">0</output></div>
+                <p class="help-text">Read-only view. This separate Agent Five instance keeps training on Cloudflare after you close the website. Your manual rewards and corrections do not change this model.</p>
+            </section>
+            <section class="stats evolution-panel user-training-only" aria-labelledby="evolution-title">
                 <h2 id="evolution-title">Evolutionary Training</h2>
                 <label class="mode-toggle" for="evolution-mode">
                     <input id="evolution-mode" type="checkbox">
@@ -64,7 +79,7 @@
                 <div class="stat-line"><span>Population diversity</span><output id="evolution-diversity">0.000</output></div>
             </section>
 
-            <section class="control-panel" aria-labelledby="learning-controls-title">
+            <section class="control-panel user-training-only" aria-labelledby="learning-controls-title">
                 <h2 id="learning-controls-title">Learning Controls</h2>
                 <div class="control-buttons">
                     <button class="btn btn-reward" id="reward-button" type="button">＋ Reward this behavior</button>
@@ -72,7 +87,7 @@
                 </div>
             </section>
 
-            <section class="control-panel" aria-labelledby="memory-tools-title">
+            <section class="control-panel user-training-only" aria-labelledby="memory-tools-title">
                 <h2 id="memory-tools-title">Memory &amp; Model</h2>
                 <p class="help-text">Agent Five stores up to 192 state memories and 48 short episodic sequences. Similar situations can recall useful actions, while PPO learns from complete action/reward trajectories. Descendants inherit the winner's policy, value network, and memories.</p>
                 <div class="control-buttons">
@@ -84,7 +99,7 @@
                 <input id="brain-file" type="file" accept=".json,application/json" hidden>
             </section>
 
-            <section class="control-panel" aria-labelledby="file-input-title">
+            <section class="control-panel user-training-only" aria-labelledby="file-input-title">
                 <h2 id="file-input-title">File Input</h2>
                 <p class="help-text">Choose a file from your device. The selected file is made available to the browser integration; it is not uploaded automatically.</p>
                 <div class="control-buttons">

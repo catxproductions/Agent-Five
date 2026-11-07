@@ -101,9 +101,12 @@
     function sessionImport(data, fileName) {
         return requestJson("/v1/session/import", { data, fileName }, MAX_IMPORT_BYTES + 16 * 1024);
     }
+    function serverTrainedStart() { return requestJson("/v1/server-trained/start"); }
+    function serverTrainedState() { return requestJson("/v1/server-trained/state"); }
 
     globalThis.AgentFiveAuth = Object.freeze({
         authorize, verify, setAccessToken, clearAccessToken,
-        sessionStart, sessionTick, sessionAction, sessionExport, sessionImport
+        sessionStart, sessionTick, sessionAction, sessionExport, sessionImport,
+        serverTrainedStart, serverTrainedState
     });
 })();
