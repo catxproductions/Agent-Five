@@ -110,3 +110,15 @@ and the Cloudflare module-wrapper setup.
 The GitHub Pages files provide the browser presentation and host adapter.
 The PPO learning worker is assembled with the downloaded Agent Learning source
 so it does not need to fetch an unauthenticated copy of that module.
+
+
+## Training modes
+
+After authorizing with `MASTER_TOKEN.token`, the browser offers two separate modes:
+
+- **Self Training Mode** — the interactive session. You can reward useful actions, correct poor behavior, adjust evolutionary settings, and import or export supported training data. This session uses its own persistent server-side state.
+- **View Server-Trained Agent** — a read-only view of a second Agent Five instance. Its Durable Object schedules background training with alarms, so it continues learning after the website closes. The user's manual rewards, corrections, imports, and resets do not modify this model.
+
+The server-trained model uses the same Agent Five core and learning implementation, but a separate Durable Object identity and storage. The first authenticated site session activates its recurring background alarm; subsequent visits only read its latest snapshot. The browser polls this view for display and does not advance its simulation.
+
+Background work is intentionally batched rather than running an always-open process. The current Worker implementation performs a bounded training batch and schedules the next Durable Object alarm. Alarm execution may be delayed by platform scheduling, and compute/requests consume Cloudflare usage. The server status panel reports the last batch and cumulative simulated steps.
