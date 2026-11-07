@@ -431,6 +431,37 @@
     let requestSequence = 0;
     let latestRenderedSequence = 0;
     let lastFeedbackMessage = "";
+    let activeMode = "self";
+
+    function stopPolling() {
+        polling = false;
+        if (pollTimer !== null) root.clearTimeout(pollTimer);
+        pollTimer = null;
+        pollBusy = false;
+    }
+
+    function setModeView(mode) {
+        activeMode = mode === "server" ? "server" : "self";
+        const serverMode = activeMode === "server";
+        const selfButton = get("self-training-mode");
+        const serverButton = get("server-trained-mode");
+        if (selfButton) {
+            selfButton.classList.toggle("is-active", !serverMode);
+            selfButton.setAttribute("aria-pressed", String(!serverMode));
+        }
+        if (serverButton) {
+            serverButton.classList.toggle("is-active", serverMode);
+            serverButton.setAttribute("aria-pressed", String(serverMode));
+        }
+        root.document.querySelectorAll(".user-training-only").forEach(element => {
+            element.hidden = serverMode;
+        });
+        const serverPanel = get("server-training-panel");
+        if (serverPanel) serverPanel.hidden = !serverMode;
+        setText("agent-five-mode-description", serverMode ?
+            "Viewing the separate server-trained Agent Five. This mode is read-only; background learning continues independently." :
+            "Train Agent Five directly with rewards, corrections, and the existing learning controls.");
+    }
 
     function renderRemoteState(state, sequence) {
         if (!state || typeof state !== "object" || !state.dimensions || !state.counters) {
@@ -473,7 +504,18 @@
         if (Array.isArray(state.neuralVizLayers) && typeof root.updateNeuralVisualizer === "function") {
             root.updateNeuralVisualizer(state.neuralVizLayers);
         }
-        setText("model-status", state.modelStatus || "Private server model active");
+        setText("model-status", activeMode === "server" ?
+            "Server-trained agent · read-only" : (state.modelStatus || "Private server model active"));
+
+        const serverTraining = state.server || {};
+        setText("server-training-status", serverTraining.autonomousTrainingEnabled ?
+            "ACTIVE · running in background" : "Not started");
+        setText("server-training-started", serverTraining.trainingStartedAt ?
+            new Date(serverTraining.trainingStartedAt).toLocaleString() : "—");
+        setText("server-training-last-run", serverTraining.lastTrainingAt ?
+            new Date(serverTraining.lastTrainingAt).toLocaleString() : "Waiting for first batch");
+        setText("server-training-steps", Number(serverTraining.simulatedSteps || 0).toLocaleString());
+
         if (state.feedback && state.feedback !== lastFeedbackMessage) {
             lastFeedbackMessage = state.feedback;
             showFeedback(state.feedback);
@@ -485,18 +527,23 @@
         pollBusy = true;
         const sequence = ++requestSequence;
         try {
-            const result = await root.AgentFiveAuth.sessionTick();
+            const result = activeMode === "server" ?
+                await root.AgentFiveAuth.serverTrainedState() :
+                await root.AgentFiveAuth.sessionTick();
             renderRemoteState(result.state, sequence);
         } catch (error) {
             showFeedback(error && error.message ? error.message : "Lost connection to the Agent Five server.");
             simulation.stop();
         } finally {
             pollBusy = false;
-            if (polling) pollTimer = root.setTimeout(pollOnce, 50);
+            if (polling) pollTimer = root.setTimeout(pollOnce, activeMode === "server" ? 1000 : 50);
         }
     }
 
     async function runAction(action, options = {}) {
+        if (activeMode !== "self") {
+            throw new Error("The server-trained agent is read-only. Switch to Self Training Mode to train your own session.");
+        }
         try {
             const result = await root.AgentFiveAuth.sessionAction(action, options);
             if (result.state) renderRemoteState(result.state, ++requestSequence);
@@ -509,10 +556,41 @@
 
     const simulation = {
         async start() {
-            polling = false;
-            if (pollTimer !== null) root.clearTimeout(pollTimer);
-            pollTimer = null;
-            pollBusy = false;
+            stopPolling();
+            setModeView("self");
+            const result = await root.AgentFiveAuth.sessionStart();
+            renderRemoteState(result.state, ++requestSequence);
+
+            // Start the autonomous model once. Its Durable Object alarm continues
+            // after this page closes and does not depend on the user's session ticks.
+            try {
+                await root.AgentFiveAuth.serverTrainedStart();
+            } catch (error) {
+                showFeedback("User training is ready, but the background server trainer could not start: " +
+                    (error && error.message ? error.message : "server unavailable"));
+            }
+
+            polling = true;
+            pollTimer = root.setTimeout(pollOnce, 50);
+            return result.state;
+        },
+        async viewServerTrainedAgent() {
+            stopPolling();
+            setModeView("server");
+            try {
+                const result = await root.AgentFiveAuth.serverTrainedStart();
+                renderRemoteState(result.state, ++requestSequence);
+                polling = true;
+                pollTimer = root.setTimeout(pollOnce, 1000);
+                return result.state;
+            } catch (error) {
+                setModeView("self");
+                throw error;
+            }
+        },
+        async viewSelfTraining() {
+            stopPolling();
+            setModeView("self");
             const result = await root.AgentFiveAuth.sessionStart();
             renderRemoteState(result.state, ++requestSequence);
             polling = true;
@@ -520,9 +598,7 @@
             return result.state;
         },
         stop() {
-            polling = false;
-            if (pollTimer !== null) root.clearTimeout(pollTimer);
-            pollTimer = null;
+            stopPolling();
         },
         getSnapshot() {
             return currentState;
@@ -553,6 +629,23 @@
             return "Model imported into the private Cloudflare session.";
         }
     };
+
+    const selfTrainingModeButton = get("self-training-mode");
+    if (selfTrainingModeButton) {
+        selfTrainingModeButton.addEventListener("click", () => {
+            simulation.viewSelfTraining().catch(error =>
+                showFeedback(error && error.message ? error.message : "Could not open Self Training Mode.")
+            );
+        });
+    }
+    const serverTrainedModeButton = get("server-trained-mode");
+    if (serverTrainedModeButton) {
+        serverTrainedModeButton.addEventListener("click", () => {
+            simulation.viewServerTrainedAgent().catch(error =>
+                showFeedback(error && error.message ? error.message : "Could not open the server-trained agent.")
+            );
+        });
+    }
 
     const populationSizeInput = get("evolution-population-size");
     if (populationSizeInput) {
